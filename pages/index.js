@@ -42,107 +42,132 @@ const words = [
 
 export default function Home() {
 
-  const container = useRef();
-  
-  useEffect(() => {
-    var Engine = Matter.Engine,
-        Render = Matter.Render,
-        Runner = Matter.Runner,
-        Bodies = Matter.Bodies,
-        Composite = Matter.Composite,
-        MouseConstraint = Matter.MouseConstraint,
-        Mouse = Matter.Mouse;
+    const container = useRef();
+    const render = useRef();
+    const engine = useRef();
 
-    var engine = Engine.create();
-    const width = container.current.getBoundingClientRect().width;
-    const height = container.current.getBoundingClientRect().height;
-    // create a renderer
-    var render = Render.create({
-        element: container.current,
-        engine: engine,
-        options: {
-          width,
-          height,
-          wireframes: false,
-          background: "white"
-        }
-    });
-    
-    //Add walls
-    const wallRight = Bodies.rectangle(width+6, height/2, 10, height, { 
-      isStatic: true 
-    })
-    const wallLeft = Bodies.rectangle(-6, height/2, 10, height, {
-        isStatic: true 
-    });
-    const ground = Bodies.rectangle(width/2, height+6, width, 10, {
-        isStatic: true,
-    });
-    const ceiling = Bodies.rectangle(width/2, -6, width, 10, {
-        isStatic: true
-    })
+    useEffect(() => {
+        var Engine = Matter.Engine,
+            Render = Matter.Render,
+            Runner = Matter.Runner,
+            Composite = Matter.Composite,
+            MouseConstraint = Matter.MouseConstraint,
+            Mouse = Matter.Mouse;
 
-    Composite.add(engine.world, [wallRight, wallLeft, ground, ceiling]);
-
-    for(const word of words){
-      const { src, x, y } = word;
-      const img = new Image();
-      img.src = `/medias/${src}`;
-      img.onload = () => {
-          const imageHeight = img.height;
-          const imageWidth = img.width;
-          const mass = 1;
-          const letter = Bodies.rectangle(width * x, height * y, imageWidth, imageHeight, {
-            mass,
-            render: {
-              sprite: {
-                texture: `/medias/${src}`
-              }
-            }
-          })
-          Composite.add(engine.world, letter);
-      }
-    }
-
-    // add mouse control
-    var mouse = Mouse.create(render.canvas),
-        mouseConstraint = MouseConstraint.create(engine, {
-            mouse: mouse,
-            constraint: {
-                stiffness: 0.2,
-                render: {
-                    visible: false
-                }
+        engine.current = Engine.create();
+        const width = container.current.clientWidth;
+        const height = container.current.clientHeight;
+        // create a renderer
+        render.current = Render.create({
+            element: container.current,
+            engine: engine.current,
+            options: {
+            width,
+            height,
+            wireframes: false,
+            background: "white"
             }
         });
 
-    Composite.add(engine.world, mouseConstraint);
+        setObjects(width, height);
+        
+        // add mouse control
+        var mouse = Mouse.create(render.current.canvas),
+            mouseConstraint = MouseConstraint.create(engine.current, {
+                mouse: mouse,
+                constraint: {
+                    stiffness: 0.2,
+                    render: {
+                        visible: false
+                    }
+                }
+            });
 
-    // keep the mouse in sync with rendering
-    render.mouse = mouse;
+        Composite.add(engine.current.world, mouseConstraint);
 
-    // run the renderer
-    Render.run(render);
-  
-    // create runner
-    var runner = Runner.create();
-  
-    // run the engine
-    Runner.run(runner, engine);
+        // keep the mouse in sync with rendering
+        render.current.mouse = mouse;
 
-    window.addEventListener("mousemove", (e) => {
+        // run the renderer
+        Render.run(render.current);
+    
+        // create runner
+        var runner = Runner.create();
+    
+        // run the engine
+        Runner.run(runner, engine.current);
+
+        window.addEventListener("mousemove", manageMouseMove) 
+        window.addEventListener("resize", manageResize)
+        return () => {
+            window.removeEventListener("mousemove", manageMouseMove)
+            window.removeEventListener("resize", manageResize)
+        }
+    }, [])
+
+    const setObjects = (width, height) => {
+        var Bodies = Matter.Bodies,
+            Composite = Matter.Composite
+
+        //Add walls
+        const wallRight = Bodies.rectangle(width+6, height/2, 10, height, { 
+            isStatic: true 
+        })
+        const wallLeft = Bodies.rectangle(-6, height/2, 10, height, {
+            isStatic: true 
+        });
+        const ground = Bodies.rectangle(width/2, height+6, width, 10, {
+            isStatic: true,
+        });
+        const ceiling = Bodies.rectangle(width/2, -6, width, 10, {
+            isStatic: true
+        })
+
+        Composite.add(engine.current.world, [wallRight, wallLeft, ground, ceiling]);
+
+        for(const word of words){
+            const { src, x, y } = word;
+            const img = new Image();
+            img.src = `/medias/${src}`;
+            img.onload = () => {
+                const imageHeight = img.height;
+                const imageWidth = img.width;
+                const mass = 1;
+                const letter = Bodies.rectangle(width * x, height * y, imageWidth, imageHeight, {
+                mass,
+                render: {
+                    sprite: {
+                    texture: `/medias/${src}`
+                    }
+                }
+                })
+                Composite.add(engine.current.world, letter);
+            }
+        }
+    }
+
+    const manageMouseMove = (e) => {
         const { clientX, clientY } = e;
         const width = window.innerWidth;
         const height = window.innerHeight;
         const gravityX = -0.5 + clientX / width
         const gravityY = -0.5 + clientY / height
-        engine.gravity.x = gravityX * 3
-        engine.gravity.y = gravityY * 3
-    }) 
-  }, [])
-  
-  return (
-    <div ref={container} className={styles.container}>
-    </div>
-  )
+        engine.current.gravity.x = gravityX * 3
+        engine.current.gravity.y = gravityY * 3
+    }
+
+    const manageResize = () => {
+        const { clientWidth, clientHeight } = container.current;
+        render.current.options.width = clientWidth;
+        render.current.options.height = clientHeight;
+        render.current.canvas.width = clientWidth;
+        render.current.canvas.height = clientHeight;
+        Matter.Composite.clear(engine.current.world);
+        setObjects(clientWidth, clientHeight);
+    }
+
+    return (
+        <div ref={container} className={styles.container}>
+        </div>
+    )
 }
